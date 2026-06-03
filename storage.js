@@ -1,10 +1,7 @@
 // storage.js - Google Sheets Sync Version
 
-// Your Google Sheet ID
 const GOOGLE_SHEET_ID = "1JucsVDKfrQypcODGGuEncPzcoPBYZZqYLqae7KO1oFU";
-
-// Google Apps Script URL (replace with your deployed URL)
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyu5ocLyrZTEsuvOX5lxaa9z8a4RV-0JrsQplLytWPG1QXSgDJl-gziJtrbEzUfucQ_qQ/exec";
+const SCRIPT_URL = "https://script.google.com/macros/s/YOUR_SCRIPT_URL_HERE/exec"; // Replace with your URL
 
 let appState = { students: [], books: [], classes: [], orders: [], history: [] };
 let isSyncing = false;
@@ -17,156 +14,37 @@ function getStoragePrefix() {
 }
 
 // ============================================
-// GOOGLE SHEETS LOAD
+// LOCAL STORAGE FUNCTIONS
 // ============================================
-async function loadFromGoogleSheets() {
+function saveToLocalStorage() {
     const prefix = getStoragePrefix();
-    const statusEl = document.getElementById('syncStatus');
-    if (statusEl) {
-        statusEl.innerHTML = '🔄 Syncing...';
-        statusEl.style.background = '#f5a623';
-    }
+    localStorage.setItem(`${prefix}_students`, JSON.stringify(appState.students));
+    localStorage.setItem(`${prefix}_books`, JSON.stringify(appState.books));
+    localStorage.setItem(`${prefix}_classes`, JSON.stringify(appState.classes));
+    localStorage.setItem(`${prefix}_orders`, JSON.stringify(appState.orders));
+    localStorage.setItem(`${prefix}_history`, JSON.stringify(appState.history));
+    console.log('Saved to localStorage. Students:', appState.students.length);
+}
+
+function loadFromLocalStorage() {
+    const prefix = getStoragePrefix();
+    const savedStudents = localStorage.getItem(`${prefix}_students`);
+    const savedBooks = localStorage.getItem(`${prefix}_books`);
+    const savedClasses = localStorage.getItem(`${prefix}_classes`);
+    const savedOrders = localStorage.getItem(`${prefix}_orders`);
+    const savedHistory = localStorage.getItem(`${prefix}_history`);
     
-    try {
-        // Fetch data from Google Sheets
-        const studentsData = await fetchSheetData(`${prefix}_Students`);
-        const booksData = await fetchSheetData(`${prefix}_Books`);
-        const classesData = await fetchSheetData(`${prefix}_Classes`);
-        const ordersData = await fetchSheetData(`${prefix}_Orders`);
-        const historyData = await fetchSheetData(`${prefix}_History`);
-        
-        if (studentsData.length > 1) {
-            appState.students = studentsData.slice(1).map(row => ({
-                id: parseInt(row[0]) || Date.now(),
-                name: row[1] || '',
-                class: row[2] || '',
-                phone: row[3] || '',
-                delivery: row[4] || '',
-                paid: parseFloat(row[5]) || 0,
-                remaining: parseFloat(row[6]) || 0,
-                remarks: row[7] || '',
-                books: row[8] ? row[8].split('|') : []
-            }));
-        }
-        
-        if (booksData.length > 1) {
-            appState.books = booksData.slice(1).map(row => ({
-                id: parseInt(row[0]) || Date.now(),
-                title: row[1] || '',
-                class: row[2] || '',
-                type: row[3] || 'Manuel',
-                quantity: parseInt(row[4]) || 0,
-                available: parseInt(row[5]) || 0,
-                price: parseFloat(row[6]) || 0
-            }));
-        }
-        
-        if (classesData.length > 1) {
-            appState.classes = classesData.slice(1).map(row => ({
-                id: parseInt(row[0]) || Date.now(),
-                name: row[1] || '',
-                level: row[2] || 'Primaire'
-            }));
-        }
-        
-        if (ordersData.length > 1) {
-            appState.orders = ordersData.slice(1).map(row => ({
-                id: parseInt(row[0]) || Date.now(),
-                bookTitle: row[1] || '',
-                class: row[2] || '',
-                quantity: parseInt(row[3]) || 0,
-                orderDate: row[4] || '',
-                status: row[5] || 'en_attente'
-            }));
-        }
-        
-        if (historyData.length > 1) {
-            appState.history = historyData.slice(1).map(row => ({
-                id: parseInt(row[0]) || Date.now(),
-                date: row[1] || '',
-                bookTitle: row[2] || '',
-                action: row[3] || '',
-                quantity: parseInt(row[4]) || 0,
-                studentName: row[5] || null
-            }));
-        }
-        
-        // If no classes exist, create defaults
-        if (appState.classes.length === 0) {
-            const defaultClasses = getUserClasses();
-            appState.classes = defaultClasses.map((name, idx) => ({ id: idx + 1, name, level: detectLevel(name) }));
-        }
-        
-        // If no books exist, create defaults
-        if (appState.books.length === 0 && appState.classes.length > 0) {
-            appState.classes.forEach((cls, idx) => {
-                appState.books.push({ id: idx * 100 + 1, title: `Manuel ${cls.name}`, class: cls.name, type: 'Manuel', quantity: 30, available: 30, price: 150 });
-                appState.books.push({ id: idx * 100 + 2, title: `Cahier ${cls.name}`, class: cls.name, type: 'Cahier', quantity: 30, available: 30, price: 50 });
-            });
-        }
-        
-        saveToLocalStorage();
-        
-        if (statusEl) {
-            statusEl.innerHTML = '✅ Synced';
-            statusEl.style.background = '#1f4f2d';
-            setTimeout(() => {
-                if (statusEl) statusEl.innerHTML = '☁️ Cloud Sync';
-            }, 2000);
-        }
-        return true;
-    } catch (error) {
-        console.error('Sync error:', error);
-        if (statusEl) {
-            statusEl.innerHTML = '⚠️ Offline';
-            statusEl.style.background = '#c0392b';
-        }
-        loadFromLocalStorage();
-        return false;
-    }
-}
-
-async function fetchSheetData(sheetName) {
-    const url = `https://docs.google.com/spreadsheets/d/${GOOGLE_SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`;
-    try {
-        const response = await fetch(url);
-        const csvText = await response.text();
-        return parseCSV(csvText);
-    } catch (error) {
-        console.error(`Error fetching ${sheetName}:`, error);
-        return [];
-    }
-}
-
-function parseCSV(csvText) {
-    const rows = [];
-    const lines = csvText.split(/\r?\n/);
-    for (const line of lines) {
-        if (line.trim() === '') continue;
-        const row = [];
-        let inQuotes = false;
-        let currentCell = '';
-        for (let i = 0; i < line.length; i++) {
-            const char = line[i];
-            if (char === '"') {
-                inQuotes = !inQuotes;
-            } else if (char === ',' && !inQuotes) {
-                row.push(currentCell.trim());
-                currentCell = '';
-            } else {
-                currentCell += char;
-            }
-        }
-        row.push(currentCell.trim());
-        if (row.length > 0 && row.some(cell => cell !== '')) {
-            rows.push(row);
-        }
-    }
-    return rows;
+    appState.students = savedStudents ? JSON.parse(savedStudents) : [];
+    appState.books = savedBooks ? JSON.parse(savedBooks) : [];
+    appState.classes = savedClasses ? JSON.parse(savedClasses) : [];
+    appState.orders = savedOrders ? JSON.parse(savedOrders) : [];
+    appState.history = savedHistory ? JSON.parse(savedHistory) : [];
+    
+    console.log('Loaded from localStorage. Students:', appState.students.length);
 }
 
 // ============================================
-// SAVE TO GOOGLE SHEETS
+// GOOGLE SHEETS SYNC
 // ============================================
 async function saveToGoogleSheets() {
     if (isSyncing) return;
@@ -177,11 +55,11 @@ async function saveToGoogleSheets() {
     try {
         const data = {
             prefix: prefix,
-            students: appState.students.map(s => [s.id, s.name, s.class, s.phone || '', s.delivery || '', s.paid || 0, s.remaining || 0, s.remarks || '', (s.books || []).join('|')]),
-            books: appState.books.map(b => [b.id, b.title, b.class, b.type, b.quantity || 0, b.available || 0, b.price || 0]),
-            classes: appState.classes.map(c => [c.id, c.name, c.level]),
-            orders: appState.orders.map(o => [o.id, o.bookTitle, o.class, o.quantity, o.orderDate || '', o.status]),
-            history: appState.history.map(h => [h.id, h.date, h.bookTitle, h.action, h.quantity || 0, h.studentName || ''])
+            students: appState.students.map(s => [s.id || '', s.name || '', s.class || '', s.phone || '', s.delivery || '', s.paid || 0, s.remaining || 0, s.remarks || '', (s.books || []).join('|')]),
+            books: appState.books.map(b => [b.id || '', b.title || '', b.class || '', b.type || '', b.quantity || 0, b.available || 0, b.price || 0]),
+            classes: appState.classes.map(c => [c.id || '', c.name || '', c.level || '']),
+            orders: appState.orders.map(o => [o.id || '', o.bookTitle || '', o.class || '', o.quantity || 0, o.orderDate || '', o.status || 'en_attente']),
+            history: appState.history.map(h => [h.id || '', h.date || '', h.bookTitle || '', h.action || '', h.quantity || 0, h.studentName || ''])
         };
         
         await fetch(SCRIPT_URL, {
@@ -190,55 +68,59 @@ async function saveToGoogleSheets() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data)
         });
-        
-        console.log('Data saved to Google Sheets');
+        console.log('Data sent to Google Sheets');
+        updateSyncStatus('✅ Synced');
     } catch (error) {
         console.error('Save to Sheets error:', error);
+        updateSyncStatus('⚠️ Offline', true);
     } finally {
         isSyncing = false;
     }
-    
-    saveToLocalStorage();
 }
 
-function saveToLocalStorage() {
-    const prefix = getStoragePrefix();
-    localStorage.setItem(`${prefix}_students`, JSON.stringify(appState.students));
-    localStorage.setItem(`${prefix}_books`, JSON.stringify(appState.books));
-    localStorage.setItem(`${prefix}_classes`, JSON.stringify(appState.classes));
-    localStorage.setItem(`${prefix}_orders`, JSON.stringify(appState.orders));
-    localStorage.setItem(`${prefix}_history`, JSON.stringify(appState.history));
+function updateSyncStatus(message, isError = false) {
+    const statusEl = document.getElementById('syncStatus');
+    if (statusEl) {
+        statusEl.innerHTML = message;
+        statusEl.style.background = isError ? '#c0392b' : '#1f4f2d';
+        setTimeout(() => {
+            if (statusEl && message !== '☁️ Cloud Sync') {
+                statusEl.innerHTML = '☁️ Cloud Sync';
+                statusEl.style.background = '#1f4f2d';
+            }
+        }, 3000);
+    }
 }
 
-function loadFromLocalStorage() {
-    const prefix = getStoragePrefix();
-    appState.students = JSON.parse(localStorage.getItem(`${prefix}_students`) || '[]');
-    appState.books = JSON.parse(localStorage.getItem(`${prefix}_books`) || '[]');
-    appState.classes = JSON.parse(localStorage.getItem(`${prefix}_classes`) || '[]');
-    appState.orders = JSON.parse(localStorage.getItem(`${prefix}_orders`) || '[]');
-    appState.history = JSON.parse(localStorage.getItem(`${prefix}_history`) || '[]');
-}
-
-// Main load function
+// ============================================
+// MAIN DATA FUNCTIONS
+// ============================================
 async function loadAllData() {
-    await loadFromGoogleSheets();
-    // Also ensure default data exists
+    loadFromLocalStorage();
+    
+    // Ensure default classes exist
     if (appState.classes.length === 0) {
         const defaultClasses = getUserClasses();
-        appState.classes = defaultClasses.map((name, idx) => ({ id: idx + 1, name, level: detectLevel(name) }));
+        appState.classes = defaultClasses.map((name, idx) => ({ id: idx + 1, name: name, level: detectLevel(name) }));
+        console.log('Created default classes:', appState.classes);
     }
+    
+    // Ensure default books exist
     if (appState.books.length === 0 && appState.classes.length > 0) {
         appState.classes.forEach((cls, idx) => {
             appState.books.push({ id: idx * 100 + 1, title: `Manuel ${cls.name}`, class: cls.name, type: 'Manuel', quantity: 30, available: 30, price: 150 });
             appState.books.push({ id: idx * 100 + 2, title: `Cahier ${cls.name}`, class: cls.name, type: 'Cahier', quantity: 30, available: 30, price: 50 });
         });
+        console.log('Created default books:', appState.books.length);
     }
+    
     saveToLocalStorage();
 }
 
 function saveAllData() {
     saveToLocalStorage();
     saveToGoogleSheets(); // Fire and forget
+    console.log('saveAllData called. Students:', appState.students.length);
 }
 
 function addToHistory(bookTitle, action, quantity, studentName) {
@@ -254,7 +136,9 @@ function addToHistory(bookTitle, action, quantity, studentName) {
     saveAllData();
 }
 
-// Getters
+// ============================================
+// GETTERS
+// ============================================
 function getStudents() { return appState.students; }
 function getBooks() { return appState.books; }
 function getClasses() { return appState.classes; }
