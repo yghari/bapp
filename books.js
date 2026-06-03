@@ -1,5 +1,6 @@
 // books.js - Book management
 let editingBookId = null;
+
 function openBookModal(bookId) {
     editingBookId = bookId;
     const book = bookId ? getBooks().find(b => b.id === bookId) : null;
@@ -14,7 +15,9 @@ function openBookModal(bookId) {
     if (book?.class) classSelect.value = book.class;
     document.getElementById('bookModal').classList.add('open');
 }
+
 function closeBookModal() { document.getElementById('bookModal').classList.remove('open'); editingBookId = null; }
+
 function saveBook() {
     const title = document.getElementById('bookTitle').value.trim();
     if (!title) { showToast('Le titre est obligatoire', true); return; }
@@ -32,6 +35,7 @@ function saveBook() {
     }
     saveAllData(); closeBookModal(); if (typeof renderDashboard === 'function') renderDashboard();
 }
+
 function deleteBook(id) {
     const book = getBooks().find(b => b.id === id);
     if (book && confirm(`Supprimer "${book.title}" ?`)) { appState.books = appState.books.filter(b => b.id !== id); saveAllData(); if (typeof renderDashboard === 'function') renderDashboard(); showToast('Livre supprimé'); }
