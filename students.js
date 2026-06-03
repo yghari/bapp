@@ -1,4 +1,5 @@
 // students.js - Student management
+
 let editingStudentId = null;
 
 function openStudentModal(studentId) {
@@ -22,43 +23,107 @@ function openStudentModal(studentId) {
     document.getElementById('studentModal').classList.add('open');
 }
 
-function closeStudentModal() { document.getElementById('studentModal').classList.remove('open'); editingStudentId = null; }
+function closeStudentModal() { 
+    document.getElementById('studentModal').classList.remove('open'); 
+    editingStudentId = null; 
+}
 
 function saveStudent() {
     const name = document.getElementById('studentName').value.trim();
-    if (!name) { showToast('Le nom est obligatoire', true); return; }
+    if (!name) { 
+        showToast('Le nom est obligatoire', true); 
+        return; 
+    }
+    
     const selectedBooks = [];
-    document.querySelectorAll('#studentBooksList input:checked').forEach(cb => selectedBooks.push(cb.value));
+    document.querySelectorAll('#studentBooksList input:checked').forEach(cb => {
+        selectedBooks.push(cb.value);
+    });
+    
     const studentData = {
-        name, class: document.getElementById('studentClass').value, phone: document.getElementById('studentPhone').value,
-        delivery: document.getElementById('studentDelivery').value, paid: parseFloat(document.getElementById('studentPaid').value) || 0,
+        name: name,
+        class: document.getElementById('studentClass').value,
+        phone: document.getElementById('studentPhone').value,
+        delivery: document.getElementById('studentDelivery').value,
+        paid: parseFloat(document.getElementById('studentPaid').value) || 0,
         remaining: parseFloat(document.getElementById('studentRemaining').value) || 0,
-        remarks: document.getElementById('studentRemarks').value, books: selectedBooks
+        remarks: document.getElementById('studentRemarks').value,
+        books: selectedBooks,
+        id: Date.now()
     };
+    
     if (editingStudentId) {
+        // Update existing student
         const index = getStudents().findIndex(s => s.id === editingStudentId);
         if (index !== -1) {
             const oldBooks = appState.students[index].books || [];
-            oldBooks.forEach(bookTitle => { const book = getBooks().find(b => b.title === bookTitle); if (book) { book.available++; addToHistory(bookTitle, 'retour', 1, name); } });
-            selectedBooks.forEach(bookTitle => { const book = getBooks().find(b => b.title === bookTitle); if (book && !oldBooks.includes(bookTitle)) { book.available--; addToHistory(bookTitle, 'attribution', -1, name); } });
+            // Return old books to stock
+            oldBooks.forEach(bookTitle => {
+                const book = getBooks().find(b => b.title === bookTitle);
+                if (book) { 
+                    book.available++; 
+                    addToHistory(bookTitle, 'retour', 1, name);
+                }
+            });
+            // Assign new books
+            selectedBooks.forEach(bookTitle => {
+                const book = getBooks().find(b => b.title === bookTitle);
+                if (book && !oldBooks.includes(bookTitle)) { 
+                    book.available--; 
+                    addToHistory(bookTitle, 'attribution', -1, name);
+                }
+            });
             appState.students[index] = { ...appState.students[index], ...studentData };
             showToast('Élève modifié ✅');
         }
     } else {
-        selectedBooks.forEach(bookTitle => { const book = getBooks().find(b => b.title === bookTitle); if (book && book.available > 0) { book.available--; addToHistory(bookTitle, 'attribution', -1, name); } });
-        studentData.id = Date.now();
+        // New student - decrease stock for assigned books
+        selectedBooks.forEach(bookTitle => {
+            const book = getBooks().find(b => b.title === bookTitle);
+            if (book && book.available > 0) { 
+                book.available--; 
+                addToHistory(bookTitle, 'attribution', -1, name);
+            }
+        });
         appState.students.push(studentData);
         showToast('Élève ajouté ✅');
     }
-    saveAllData(); closeStudentModal(); if (typeof renderDashboard === 'function') renderDashboard();
+    
+    // CRITICAL: Save to localStorage AND Google Sheets
+    saveAllData();
+    
+    // Close modal and refresh display
+    closeStudentModal();
+    
+    // Refresh all displays
+    if (typeof renderStats === 'function') renderStats();
+    if (typeof renderStudents === 'function') renderStudents();
+    if (typeof renderClasses === 'function') renderClasses();
+    if (typeof renderDashboard === 'function') renderDashboard();
 }
 
 function deleteStudent(id) {
     const student = getStudents().find(s => s.id === id);
     if (student && confirm(`Supprimer "${student.name}" ?`)) {
-        (student.books || []).forEach(bookTitle => { const book = getBooks().find(b => b.title === bookTitle); if (book) { book.available++; addToHistory(bookTitle, 'retour', 1, student.name); } });
+        // Return books to stock
+        (student.books || []).forEach(bookTitle => {
+            const book = getBooks().find(b => b.title === bookTitle);
+            if (book) { 
+                book.available++; 
+                addToHistory(bookTitle, 'retour', 1, student.name);
+            }
+        });
         appState.students = appState.students.filter(s => s.id !== id);
-        saveAllData(); if (typeof renderDashboard === 'function') renderDashboard();
+        
+        // CRITICAL: Save after deletion
+        saveAllData();
+        
+        // Refresh displays
+        if (typeof renderStats === 'function') renderStats();
+        if (typeof renderStudents === 'function') renderStudents();
+        if (typeof renderClasses === 'function') renderClasses();
+        if (typeof renderDashboard === 'function') renderDashboard();
+        
         showToast('Élève supprimé');
     }
 }
