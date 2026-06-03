@@ -1,129 +1,164 @@
-// students.js - Student management
+// storage.js - Simple Working Version (localStorage only)
 
-let editingStudentId = null;
+let appState = { students: [], books: [], classes: [], orders: [], history: [] };
 
-function openStudentModal(studentId) {
-    editingStudentId = studentId;
-    const student = studentId ? getStudents().find(s => s.id === studentId) : null;
-    document.getElementById('modalStudentTitle').innerText = student ? '✏️ Modifier Élève' : '➕ Ajouter un Élève';
-    document.getElementById('studentName').value = student?.name || '';
-    document.getElementById('studentPhone').value = student?.phone || '';
-    document.getElementById('studentDelivery').value = student?.delivery || '';
-    document.getElementById('studentPaid').value = student?.paid || 0;
-    document.getElementById('studentRemaining').value = student?.remaining || 0;
-    document.getElementById('studentRemarks').value = student?.remarks || '';
-    
-    const classSelect = document.getElementById('studentClass');
-    classSelect.innerHTML = '<option value="">-- Sélectionner --</option>' + getClasses().map(c => `<option value="${escapeHtml(c.name)}">${escapeHtml(c.name)}</option>`).join('');
-    if (student?.class) classSelect.value = student.class;
-    
-    const booksContainer = document.getElementById('studentBooksList');
-    const studentBooks = student?.books || [];
-    booksContainer.innerHTML = getBooks().map(book => `<label class="checkbox-item"><input type="checkbox" value="${escapeHtml(book.title)}" ${studentBooks.includes(book.title) ? 'checked' : ''}> ${escapeHtml(book.title)} (${book.class}) - stock: ${book.available}</label>`).join('');
-    document.getElementById('studentModal').classList.add('open');
+function getStoragePrefix() {
+    const user = getCurrentUser();
+    if (!user) return 'temp';
+    if (user.role === 'admin') return 'global';
+    return user.school;
 }
 
-function closeStudentModal() { 
-    document.getElementById('studentModal').classList.remove('open'); 
-    editingStudentId = null; 
-}
-
-function saveStudent() {
-    const name = document.getElementById('studentName').value.trim();
-    if (!name) { 
-        showToast('Le nom est obligatoire', true); 
-        return; 
+// ============================================
+// SAVE TO LOCALSTORAGE
+// ============================================
+function saveToLocalStorage() {
+    const prefix = getStoragePrefix();
+    localStorage.setItem(`${prefix}_students`, JSON.stringify(appState.students));
+    localStorage.setItem(`${prefix}_books`, JSON.stringify(appState.books));
+    localStorage.setItem(`${prefix}_classes`, JSON.stringify(appState.classes));
+    localStorage.setItem(`${prefix}_orders`, JSON.stringify(appState.orders));
+    localStorage.setItem(`${prefix}_history`, JSON.stringify(appState.history));
+    
+    console.log(`💾 SAVED: Students: ${appState.students.length}, Prefix: ${prefix}`);
+    
+    const statusEl = document.getElementById('syncStatus');
+    if (statusEl) {
+        statusEl.innerHTML = '💾 Sauvegardé';
+        setTimeout(() => {
+            if (statusEl) statusEl.innerHTML = '☁️ Local';
+        }, 1500);
     }
+}
+
+// ============================================
+// LOAD FROM LOCALSTORAGE
+// ============================================
+function loadFromLocalStorage() {
+    const prefix = getStoragePrefix();
     
-    const selectedBooks = [];
-    document.querySelectorAll('#studentBooksList input:checked').forEach(cb => {
-        selectedBooks.push(cb.value);
+    const savedStudents = localStorage.getItem(`${prefix}_students`);
+    const savedBooks = localStorage.getItem(`${prefix}_books`);
+    const savedClasses = localStorage.getItem(`${prefix}_classes`);
+    const savedOrders = localStorage.getItem(`${prefix}_orders`);
+    const savedHistory = localStorage.getItem(`${prefix}_history`);
+    
+    appState.students = savedStudents ? JSON.parse(savedStudents) : [];
+    appState.books = savedBooks ? JSON.parse(savedBooks) : [];
+    appState.classes = savedClasses ? JSON.parse(savedClasses) : [];
+    appState.orders = savedOrders ? JSON.parse(savedOrders) : [];
+    appState.history = savedHistory ? JSON.parse(savedHistory) : [];
+    
+    console.log(`📂 LOADED: Students: ${appState.students.length}, Prefix: ${prefix}`);
+    return appState.students.length > 0;
+}
+
+// ============================================
+// INITIALIZE DEFAULT DATA
+// ============================================
+function initializeDefaultData() {
+    console.log("Creating default data...");
+    
+    // Default classes based on user's school
+    const defaultClasses = getUserClasses();
+    appState.classes = defaultClasses.map((name, idx) => ({ 
+        id: idx + 1, 
+        name: name, 
+        level: detectLevel(name) 
+    }));
+    
+    // Default books
+    appState.books = [];
+    appState.classes.forEach((cls, idx) => {
+        appState.books.push({ 
+            id: idx * 100 + 1, 
+            title: `Manuel ${cls.name}`, 
+            class: cls.name, 
+            type: 'Manuel', 
+            quantity: 30, 
+            available: 30, 
+            price: 150 
+        });
+        appState.books.push({ 
+            id: idx * 100 + 2, 
+            title: `Cahier ${cls.name}`, 
+            class: cls.name, 
+            type: 'Cahier', 
+            quantity: 30, 
+            available: 30, 
+            price: 50 
+        });
     });
     
-    const studentData = {
-        name: name,
-        class: document.getElementById('studentClass').value,
-        phone: document.getElementById('studentPhone').value,
-        delivery: document.getElementById('studentDelivery').value,
-        paid: parseFloat(document.getElementById('studentPaid').value) || 0,
-        remaining: parseFloat(document.getElementById('studentRemaining').value) || 0,
-        remarks: document.getElementById('studentRemarks').value,
-        books: selectedBooks,
-        id: Date.now()
-    };
+    // Sample student for testing
+    appState.students = [
+        { id: 1, name: "Élève Test", class: "CP", phone: "0612345678", delivery: "2024-01-15", paid: 200, remaining: 0, remarks: "Élève test", books: [] }
+    ];
     
-    if (editingStudentId) {
-        // Update existing student
-        const index = getStudents().findIndex(s => s.id === editingStudentId);
-        if (index !== -1) {
-            const oldBooks = appState.students[index].books || [];
-            // Return old books to stock
-            oldBooks.forEach(bookTitle => {
-                const book = getBooks().find(b => b.title === bookTitle);
-                if (book) { 
-                    book.available++; 
-                    addToHistory(bookTitle, 'retour', 1, name);
-                }
-            });
-            // Assign new books
-            selectedBooks.forEach(bookTitle => {
-                const book = getBooks().find(b => b.title === bookTitle);
-                if (book && !oldBooks.includes(bookTitle)) { 
-                    book.available--; 
-                    addToHistory(bookTitle, 'attribution', -1, name);
-                }
-            });
-            appState.students[index] = { ...appState.students[index], ...studentData };
-            showToast('Élève modifié ✅');
-        }
-    } else {
-        // New student - decrease stock for assigned books
-        selectedBooks.forEach(bookTitle => {
-            const book = getBooks().find(b => b.title === bookTitle);
-            if (book && book.available > 0) { 
-                book.available--; 
-                addToHistory(bookTitle, 'attribution', -1, name);
-            }
-        });
-        appState.students.push(studentData);
-        showToast('Élève ajouté ✅');
-    }
+    appState.orders = [];
+    appState.history = [];
     
-    // CRITICAL: Save to localStorage AND Google Sheets
-    saveAllData();
-    
-    // Close modal and refresh display
-    closeStudentModal();
-    
-    // Refresh all displays
-    if (typeof renderStats === 'function') renderStats();
-    if (typeof renderStudents === 'function') renderStudents();
-    if (typeof renderClasses === 'function') renderClasses();
-    if (typeof renderDashboard === 'function') renderDashboard();
+    saveToLocalStorage();
+    console.log("Default data created!");
 }
 
-function deleteStudent(id) {
-    const student = getStudents().find(s => s.id === id);
-    if (student && confirm(`Supprimer "${student.name}" ?`)) {
-        // Return books to stock
-        (student.books || []).forEach(bookTitle => {
-            const book = getBooks().find(b => b.title === bookTitle);
-            if (book) { 
-                book.available++; 
-                addToHistory(bookTitle, 'retour', 1, student.name);
-            }
-        });
-        appState.students = appState.students.filter(s => s.id !== id);
-        
-        // CRITICAL: Save after deletion
-        saveAllData();
-        
-        // Refresh displays
-        if (typeof renderStats === 'function') renderStats();
-        if (typeof renderStudents === 'function') renderStudents();
-        if (typeof renderClasses === 'function') renderClasses();
-        if (typeof renderDashboard === 'function') renderDashboard();
-        
-        showToast('Élève supprimé');
+// ============================================
+// MAIN LOAD FUNCTION
+// ============================================
+function loadAllData() {
+    console.log("loadAllData called");
+    const hasData = loadFromLocalStorage();
+    
+    if (!hasData || appState.students.length === 0) {
+        console.log("No data found, initializing defaults...");
+        initializeDefaultData();
     }
+    
+    // Ensure classes exist
+    if (appState.classes.length === 0) {
+        const defaultClasses = getUserClasses();
+        appState.classes = defaultClasses.map((name, idx) => ({ id: idx + 1, name, level: detectLevel(name) }));
+        saveToLocalStorage();
+    }
+    
+    // Ensure books exist
+    if (appState.books.length === 0 && appState.classes.length > 0) {
+        appState.classes.forEach((cls, idx) => {
+            appState.books.push({ id: idx * 100 + 1, title: `Manuel ${cls.name}`, class: cls.name, type: 'Manuel', quantity: 30, available: 30, price: 150 });
+            appState.books.push({ id: idx * 100 + 2, title: `Cahier ${cls.name}`, class: cls.name, type: 'Cahier', quantity: 30, available: 30, price: 50 });
+        });
+        saveToLocalStorage();
+    }
+    
+    console.log("Final state:", { students: appState.students.length, books: appState.books.length, classes: appState.classes.length });
 }
+
+// ============================================
+// SAVE ALL DATA (CALL THIS AFTER CHANGES)
+// ============================================
+function saveAllData() {
+    console.log("saveAllData called - Saving", appState.students.length, "students");
+    saveToLocalStorage();
+}
+
+function addToHistory(bookTitle, action, quantity, studentName) {
+    appState.history.unshift({
+        id: Date.now(),
+        date: new Date().toLocaleString(),
+        bookTitle: bookTitle,
+        action: action,
+        quantity: quantity,
+        studentName: studentName
+    });
+    if (appState.history.length > 200) appState.history.pop();
+    saveAllData();
+}
+
+// ============================================
+// GETTERS
+// ============================================
+function getStudents() { return appState.students; }
+function getBooks() { return appState.books; }
+function getClasses() { return appState.classes; }
+function getOrders() { return appState.orders; }
+function getHistory() { return appState.history; }
