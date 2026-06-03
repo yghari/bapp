@@ -6,7 +6,9 @@ function openOrderModal() {
     document.getElementById('orderDate').value = new Date().toISOString().slice(0, 10);
     document.getElementById('orderModal').classList.add('open');
 }
+
 function closeOrderModal() { document.getElementById('orderModal').classList.remove('open'); }
+
 function saveOrder() {
     const bookTitle = document.getElementById('orderBook').value;
     const quantity = parseInt(document.getElementById('orderQuantity').value) || 0;
@@ -19,6 +21,7 @@ function saveOrder() {
     saveAllData(); closeOrderModal(); if (typeof renderDashboard === 'function') renderDashboard();
     showToast(`Commande de ${quantity} ${bookTitle} enregistrée`);
 }
+
 function markOrderReceived(orderId) {
     const order = getOrders().find(o => o.id === orderId);
     if (order && order.status === 'en_attente') {
@@ -26,6 +29,7 @@ function markOrderReceived(orderId) {
         if (book) { book.quantity += order.quantity; book.available += order.quantity; order.status = 'livré'; addToHistory(book.title, 'livraison reçue', order.quantity, null); saveAllData(); if (typeof renderDashboard === 'function') renderDashboard(); showToast(`Stock mis à jour: +${order.quantity} ${book.title}`); }
     }
 }
+
 function deleteOrder(id) {
     if (confirm('Supprimer cette commande ?')) { appState.orders = appState.orders.filter(o => o.id !== id); saveAllData(); if (typeof renderDashboard === 'function') renderDashboard(); showToast('Commande supprimée'); }
 }
