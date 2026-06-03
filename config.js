@@ -12,7 +12,12 @@ function detectLevel(className) {
     if (['2nde','1ère','Tle'].includes(className)) return 'Lycée';
     return 'Autre';
 }
-function escapeHtml(str) { if (!str) return ''; return str.replace(/[&<>]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[m]); }
+
+function escapeHtml(str) { 
+    if (!str) return ''; 
+    return str.replace(/[&<>]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[m]); 
+}
+
 function showToast(msg, isError) {
     const toast = document.getElementById('toastMsg');
     if (toast) {
@@ -21,4 +26,14 @@ function showToast(msg, isError) {
         toast.style.display = 'block';
         setTimeout(() => toast.style.display = 'none', 2500);
     }
+}
+
+// ============ ADD THIS FUNCTION ============
+function getUserClasses() {
+    const user = getCurrentUser();
+    if (!user) return [];
+    if (user.role === 'admin') {
+        return [...SCHOOLS.L1.levels, ...SCHOOLS.L2.levels, ...SCHOOLS.L3.levels].filter((v,i,a)=>a.indexOf(v)===i);
+    }
+    return SCHOOLS[user.school]?.levels || [];
 }
