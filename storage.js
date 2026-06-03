@@ -1,10 +1,6 @@
-// storage.js - Google Sheets Sync Version
-
-const GOOGLE_SHEET_ID = "1JucsVDKfrQypcODGGuEncPzcoPBYZZqYLqae7KO1oFU";
-const SCRIPT_URL = "https://script.google.com/macros/s/YOUR_SCRIPT_URL_HERE/exec"; // Replace with your URL
+// storage.js - Simple Working Version
 
 let appState = { students: [], books: [], classes: [], orders: [], history: [] };
-let isSyncing = false;
 
 function getStoragePrefix() {
     const user = getCurrentUser();
@@ -14,7 +10,7 @@ function getStoragePrefix() {
 }
 
 // ============================================
-// LOCAL STORAGE FUNCTIONS
+// SAVE TO LOCALSTORAGE
 // ============================================
 function saveToLocalStorage() {
     const prefix = getStoragePrefix();
@@ -23,11 +19,30 @@ function saveToLocalStorage() {
     localStorage.setItem(`${prefix}_classes`, JSON.stringify(appState.classes));
     localStorage.setItem(`${prefix}_orders`, JSON.stringify(appState.orders));
     localStorage.setItem(`${prefix}_history`, JSON.stringify(appState.history));
-    console.log('Saved to localStorage. Students:', appState.students.length);
+    
+    console.log(`💾 SAVED to ${prefix}:`, {
+        students: appState.students.length,
+        books: appState.books.length,
+        classes: appState.classes.length
+    });
+    
+    // Update UI status
+    const statusEl = document.getElementById('syncStatus');
+    if (statusEl) {
+        statusEl.innerHTML = '💾 Sauvegardé';
+        statusEl.style.background = '#1f4f2d';
+        setTimeout(() => {
+            if (statusEl) statusEl.innerHTML = '☁️ Local';
+        }, 1500);
+    }
 }
 
+// ============================================
+// LOAD FROM LOCALSTORAGE
+// ============================================
 function loadFromLocalStorage() {
     const prefix = getStoragePrefix();
+    
     const savedStudents = localStorage.getItem(`${prefix}_students`);
     const savedBooks = localStorage.getItem(`${prefix}_books`);
     const savedClasses = localStorage.getItem(`${prefix}_classes`);
@@ -40,87 +55,104 @@ function loadFromLocalStorage() {
     appState.orders = savedOrders ? JSON.parse(savedOrders) : [];
     appState.history = savedHistory ? JSON.parse(savedHistory) : [];
     
-    console.log('Loaded from localStorage. Students:', appState.students.length);
+    console.log(`📂 LOADED from ${prefix}:`, {
+        students: appState.students.length,
+        books: appState.books.length,
+        classes: appState.classes.length
+    });
+    
+    return appState.students.length > 0;
 }
 
 // ============================================
-// GOOGLE SHEETS SYNC
+// INITIALIZE DEFAULT DATA
 // ============================================
-async function saveToGoogleSheets() {
-    if (isSyncing) return;
-    isSyncing = true;
+function initializeDefaultData() {
+    console.log("Initializing default data...");
     
-    const prefix = getStoragePrefix();
+    // Create default classes
+    const defaultClasses = getUserClasses();
+    appState.classes = defaultClasses.map((name, idx) => ({ 
+        id: idx + 1, 
+        name: name, 
+        level: detectLevel(name) 
+    }));
     
-    try {
-        const data = {
-            prefix: prefix,
-            students: appState.students.map(s => [s.id || '', s.name || '', s.class || '', s.phone || '', s.delivery || '', s.paid || 0, s.remaining || 0, s.remarks || '', (s.books || []).join('|')]),
-            books: appState.books.map(b => [b.id || '', b.title || '', b.class || '', b.type || '', b.quantity || 0, b.available || 0, b.price || 0]),
-            classes: appState.classes.map(c => [c.id || '', c.name || '', c.level || '']),
-            orders: appState.orders.map(o => [o.id || '', o.bookTitle || '', o.class || '', o.quantity || 0, o.orderDate || '', o.status || 'en_attente']),
-            history: appState.history.map(h => [h.id || '', h.date || '', h.bookTitle || '', h.action || '', h.quantity || 0, h.studentName || ''])
-        };
-        
-        await fetch(SCRIPT_URL, {
-            method: 'POST',
-            mode: 'no-cors',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data)
+    // Create default books
+    appState.books = [];
+    appState.classes.forEach((cls, idx) => {
+        appState.books.push({ 
+            id: idx * 100 + 1, 
+            title: `Manuel ${cls.name}`, 
+            class: cls.name, 
+            type: 'Manuel', 
+            quantity: 30, 
+            available: 30, 
+            price: 150 
         });
-        console.log('Data sent to Google Sheets');
-        updateSyncStatus('✅ Synced');
-    } catch (error) {
-        console.error('Save to Sheets error:', error);
-        updateSyncStatus('⚠️ Offline', true);
-    } finally {
-        isSyncing = false;
-    }
-}
-
-function updateSyncStatus(message, isError = false) {
-    const statusEl = document.getElementById('syncStatus');
-    if (statusEl) {
-        statusEl.innerHTML = message;
-        statusEl.style.background = isError ? '#c0392b' : '#1f4f2d';
-        setTimeout(() => {
-            if (statusEl && message !== '☁️ Cloud Sync') {
-                statusEl.innerHTML = '☁️ Cloud Sync';
-                statusEl.style.background = '#1f4f2d';
-            }
-        }, 3000);
-    }
-}
-
-// ============================================
-// MAIN DATA FUNCTIONS
-// ============================================
-async function loadAllData() {
-    loadFromLocalStorage();
+        appState.books.push({ 
+            id: idx * 100 + 2, 
+            title: `Cahier ${cls.name}`, 
+            class: cls.name, 
+            type: 'Cahier', 
+            quantity: 30, 
+            available: 30, 
+            price: 50 
+        });
+    });
     
-    // Ensure default classes exist
+    // Add sample student for testing
+    appState.students = [
+        { id: 1, name: "Élève Test", class: "CP", phone: "0612345678", delivery: "2024-01-15", paid: 200, remaining: 0, remarks: "", books: [] }
+    ];
+    
+    appState.orders = [];
+    appState.history = [];
+    
+    saveToLocalStorage();
+    console.log("Default data created and saved!");
+}
+
+// ============================================
+// MAIN LOAD FUNCTION
+// ============================================
+function loadAllData() {
+    const hasData = loadFromLocalStorage();
+    
+    if (!hasData || appState.classes.length === 0) {
+        console.log("No data found, initializing defaults...");
+        initializeDefaultData();
+    }
+    
+    // Ensure classes exist even if localStorage had some but empty
     if (appState.classes.length === 0) {
         const defaultClasses = getUserClasses();
-        appState.classes = defaultClasses.map((name, idx) => ({ id: idx + 1, name: name, level: detectLevel(name) }));
-        console.log('Created default classes:', appState.classes);
+        appState.classes = defaultClasses.map((name, idx) => ({ id: idx + 1, name, level: detectLevel(name) }));
+        saveToLocalStorage();
     }
     
-    // Ensure default books exist
+    // Ensure books exist
     if (appState.books.length === 0 && appState.classes.length > 0) {
         appState.classes.forEach((cls, idx) => {
             appState.books.push({ id: idx * 100 + 1, title: `Manuel ${cls.name}`, class: cls.name, type: 'Manuel', quantity: 30, available: 30, price: 150 });
             appState.books.push({ id: idx * 100 + 2, title: `Cahier ${cls.name}`, class: cls.name, type: 'Cahier', quantity: 30, available: 30, price: 50 });
         });
-        console.log('Created default books:', appState.books.length);
+        saveToLocalStorage();
     }
     
-    saveToLocalStorage();
+    console.log("Final loaded state:", {
+        students: appState.students.length,
+        books: appState.books.length,
+        classes: appState.classes.length
+    });
 }
 
+// ============================================
+// SAVE ALL DATA (call this after any change)
+// ============================================
 function saveAllData() {
     saveToLocalStorage();
-    saveToGoogleSheets(); // Fire and forget
-    console.log('saveAllData called. Students:', appState.students.length);
+    console.log("✅ Data saved! Student count:", appState.students.length);
 }
 
 function addToHistory(bookTitle, action, quantity, studentName) {
