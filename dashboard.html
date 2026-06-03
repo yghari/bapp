@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Centre d'Apprentissage - Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="appContainer"></div>
+    <div id="toastMsg" class="toast-msg"></div>
+
+    <!-- Modals -->
+    <div id="studentModal" class="modal">
+        <div class="modal-card">
+            <h3 id="modalStudentTitle">Ajouter un Élève</h3>
+            <div class="form-field"><label>Nom complet</label><input type="text" id="studentName" placeholder="Prénom Nom"></div>
+            <div class="form-row">
+                <div class="form-field"><label>Classe</label><select id="studentClass"></select></div>
+                <div class="form-field"><label>Téléphone</label><input type="tel" id="studentPhone" placeholder="06XXXXXXXX"></div>
+            </div>
+            <div class="form-row">
+                <div class="form-field"><label>Date livraison</label><input type="date" id="studentDelivery"></div>
+            </div>
+            <div class="form-row">
+                <div class="form-field"><label>Montant payé (DH)</label><input type="number" id="studentPaid" value="0"></div>
+                <div class="form-field"><label>Reste à payer (DH)</label><input type="number" id="studentRemaining" value="0"></div>
+            </div>
+            <div class="form-field"><label>Livres reçus</label><div id="studentBooksList" class="checkbox-group"></div></div>
+            <div class="form-field"><label>Remarques</label><textarea id="studentRemarks" rows="2"></textarea></div>
+            <div class="action-btns"><button class="outline" onclick="closeStudentModal()">Annuler</button><button class="primary" onclick="saveStudent()">💾 Enregistrer</button></div>
+        </div>
+    </div>
+
+    <div id="bookModal" class="modal">
+        <div class="modal-card">
+            <h3 id="modalBookTitle">Ajouter un Livre</h3>
+            <div class="form-field"><label>Titre</label><input type="text" id="bookTitle"></div>
+            <div class="form-row">
+                <div class="form-field"><label>Classe</label><select id="bookClass"></select></div>
+                <div class="form-field"><label>Type</label><select id="bookType"></select></div>
+            </div>
+            <div class="form-row">
+                <div class="form-field"><label>Quantité totale</label><input type="number" id="bookQuantity" value="0"></div>
+                <div class="form-field"><label>Disponible</label><input type="number" id="bookAvailable" value="0"></div>
+            </div>
+            <div class="form-field"><label>Prix (DH)</label><input type="number" id="bookPrice" value="0"></div>
+            <div class="action-btns"><button class="outline" onclick="closeBookModal()">Annuler</button><button class="primary" onclick="saveBook()">💾 Enregistrer</button></div>
+        </div>
+    </div>
+
+    <div id="classModal" class="modal">
+        <div class="modal-card">
+            <h3 id="modalClassTitle">Ajouter une Classe</h3>
+            <div class="form-field"><label>Nom de la classe</label><input type="text" id="className" placeholder="Ex: CP, 6ème..."></div>
+            <div class="form-field"><label>Niveau</label><select id="classLevel"><option>Primaire</option><option>Collège</option><option>Lycée</option></select></div>
+            <div class="action-btns"><button class="outline" onclick="closeClassModal()">Annuler</button><button class="primary" onclick="saveClass()">💾 Enregistrer</button></div>
+        </div>
+    </div>
+
+    <div id="orderModal" class="modal">
+        <div class="modal-card">
+            <h3>📦 Nouvelle Commande</h3>
+            <div class="form-field"><label>Livre</label><select id="orderBook"></select></div>
+            <div class="form-row">
+                <div class="form-field"><label>Quantité</label><input type="number" id="orderQuantity" value="0"></div>
+                <div class="form-field"><label>Date commande</label><input type="date" id="orderDate"></div>
+            </div>
+            <div class="action-btns"><button class="outline" onclick="closeOrderModal()">Annuler</button><button class="primary" onclick="saveOrder()">💾 Commander</button></div>
+        </div>
+    </div>
+
+    <script src="config.js"></script>
+    <script src="auth.js"></script>
+    <script src="storage.js"></script>
+    <script src="students.js"></script>
+    <script src="books.js"></script>
+    <script src="classes.js"></script>
+    <script src="stock.js"></script>
+    <script src="app.js"></script>
+    <script>
+        if (!isLoggedIn()) window.location.href = 'index.html';
+        initAuth();
+        loadAllData();
+        renderDashboard();
+    </script>
+</body>
+</html>
