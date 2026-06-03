@@ -1,5 +1,6 @@
 // classes.js - Class management
 let editingClassId = null;
+
 function openClassModal(classId) {
     editingClassId = classId;
     const cls = classId ? getClasses().find(c => c.id === classId) : null;
@@ -8,7 +9,9 @@ function openClassModal(classId) {
     document.getElementById('classLevel').value = cls?.level || 'Primaire';
     document.getElementById('classModal').classList.add('open');
 }
+
 function closeClassModal() { document.getElementById('classModal').classList.remove('open'); editingClassId = null; }
+
 function saveClass() {
     const name = document.getElementById('className').value.trim();
     if (!name) { showToast('Le nom est obligatoire', true); return; }
@@ -22,6 +25,7 @@ function saveClass() {
     }
     saveAllData(); closeClassModal(); if (typeof renderDashboard === 'function') renderDashboard();
 }
+
 function deleteClass(id) {
     const cls = getClasses().find(c => c.id === id);
     const hasStudents = getStudents().some(s => s.class === cls.name);
