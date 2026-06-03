@@ -1,10 +1,10 @@
 // storage.js - Google Sheets Sync Version
 
 // Your Google Sheet ID
-const GOOGLE_SHEET_ID = "1nb2dBVD-FSf7AMurmnQp_2GCbxCBQtPManWxqFB1GKc";
+const GOOGLE_SHEET_ID = "1JucsVDKfrQypcODGGuEncPzcoPBYZZqYLqae7KO1oFU";
 
 // Google Apps Script URL (replace with your deployed URL)
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx4XYiXrYCvweiIj10xX3mKPAQruA-Sbxn5DAI1LTvtHRJjPGz00nccJ4k_rKHaEEth/exec";
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyu5ocLyrZTEsuvOX5lxaa9z8a4RV-0JrsQplLytWPG1QXSgDJl-gziJtrbEzUfucQ_qQ/exec";
 
 let appState = { students: [], books: [], classes: [], orders: [], history: [] };
 let isSyncing = false;
