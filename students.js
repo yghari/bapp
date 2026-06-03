@@ -1,5 +1,6 @@
 // students.js - Student management
 let editingStudentId = null;
+
 function openStudentModal(studentId) {
     editingStudentId = studentId;
     const student = studentId ? getStudents().find(s => s.id === studentId) : null;
@@ -10,15 +11,19 @@ function openStudentModal(studentId) {
     document.getElementById('studentPaid').value = student?.paid || 0;
     document.getElementById('studentRemaining').value = student?.remaining || 0;
     document.getElementById('studentRemarks').value = student?.remarks || '';
+    
     const classSelect = document.getElementById('studentClass');
     classSelect.innerHTML = '<option value="">-- Sélectionner --</option>' + getClasses().map(c => `<option value="${escapeHtml(c.name)}">${escapeHtml(c.name)}</option>`).join('');
     if (student?.class) classSelect.value = student.class;
+    
     const booksContainer = document.getElementById('studentBooksList');
     const studentBooks = student?.books || [];
     booksContainer.innerHTML = getBooks().map(book => `<label class="checkbox-item"><input type="checkbox" value="${escapeHtml(book.title)}" ${studentBooks.includes(book.title) ? 'checked' : ''}> ${escapeHtml(book.title)} (${book.class}) - stock: ${book.available}</label>`).join('');
     document.getElementById('studentModal').classList.add('open');
 }
+
 function closeStudentModal() { document.getElementById('studentModal').classList.remove('open'); editingStudentId = null; }
+
 function saveStudent() {
     const name = document.getElementById('studentName').value.trim();
     if (!name) { showToast('Le nom est obligatoire', true); return; }
@@ -34,7 +39,7 @@ function saveStudent() {
         const index = getStudents().findIndex(s => s.id === editingStudentId);
         if (index !== -1) {
             const oldBooks = appState.students[index].books || [];
-            oldBooks.forEach(bookTitle => { const book = getBooks().find(b => b.title === bookTitle); if (book) book.available++; addToHistory(bookTitle, 'retour', 1, name); });
+            oldBooks.forEach(bookTitle => { const book = getBooks().find(b => b.title === bookTitle); if (book) { book.available++; addToHistory(bookTitle, 'retour', 1, name); } });
             selectedBooks.forEach(bookTitle => { const book = getBooks().find(b => b.title === bookTitle); if (book && !oldBooks.includes(bookTitle)) { book.available--; addToHistory(bookTitle, 'attribution', -1, name); } });
             appState.students[index] = { ...appState.students[index], ...studentData };
             showToast('Élève modifié ✅');
@@ -47,6 +52,7 @@ function saveStudent() {
     }
     saveAllData(); closeStudentModal(); if (typeof renderDashboard === 'function') renderDashboard();
 }
+
 function deleteStudent(id) {
     const student = getStudents().find(s => s.id === id);
     if (student && confirm(`Supprimer "${student.name}" ?`)) {
